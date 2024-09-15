@@ -1,15 +1,19 @@
 import { getOrder } from '../../services/apiRestaurant';
-import { useLoaderData } from 'react-router-dom';
+import { useFetcher, useLoaderData } from 'react-router-dom';
 import {
   calcMinutesLeft,
   formatCurrency,
   formatDate,
 } from '../../utils/helpers';
 import OrderItem from './OrderItem';
+import { useEffect } from 'react';
+import UpdateOrder from './UpdateOrder';
 
 function Order() {
   // Everyone can search for all orders, so for privacy reasons we're gonna gonna exclude names or address, these are only for the restaurant staff
+
   const order = useLoaderData();
+
   const {
     id,
     status,
@@ -19,7 +23,19 @@ function Order() {
     estimatedDelivery,
     cart,
   } = order;
+
   const deliveryIn = calcMinutesLeft(estimatedDelivery);
+
+  const fetcher = useFetcher();
+
+  useEffect(
+    function () {
+      if (!fetcher.data && fetcher.state === 'idle') {
+        fetcher.load(`/menu`);
+      }
+    },
+    [fetcher],
+  );
 
   return (
     <div className="space-y-6 px-4 py-6">
@@ -50,7 +66,15 @@ function Order() {
 
       <ul className="divide-y border-b border-t">
         {cart.map((item) => (
-          <OrderItem key={item.pizzaId} item={item} />
+          <OrderItem
+            key={item.pizzaId}
+            item={item}
+            isLoadingIngredients={fetcher.state === 'loading'}
+            ingredients={
+              fetcher.data?.find((el) => el.id === item.pizzaId).ingredients ??
+              []
+            }
+          />
         ))}
       </ul>
 
@@ -60,13 +84,16 @@ function Order() {
         </p>
         {priority && (
           <p className="text-sm font-medium text-stone-600">
-            Price priority: {formatCurrency(priorityPrice)}
+            <span className="bg-stone-300">
+              Price priority: {formatCurrency(priorityPrice)}
+            </span>
           </p>
         )}
         <p className="text-md font-bold text-stone-700">
           To pay on delivery: {formatCurrency(orderPrice + priorityPrice)}
         </p>
       </div>
+      {!priority && <UpdateOrder order={order} />}
     </div>
   );
 }
